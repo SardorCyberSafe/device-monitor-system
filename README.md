@@ -10,7 +10,7 @@
 ```mermaid
 graph TB
     subgraph TELEGRAM
-        A[📱 Sizning Telegram] -->|/scan /deploy /devices| B[🤖 Telegram Bot]
+        A[Telegram User] -->|commands| B[Telegram Bot]
     end
 
     subgraph SERVER
@@ -21,19 +21,19 @@ graph TB
     end
 
     subgraph LOCAL_NETWORK
-        F[💻 PC-1 Agent] -->|POST /api/heartbeat| E
-        G[💻 PC-2 Agent] -->|POST /api/heartbeat| E
-        H[💻 PC-3 Agent] -->|POST /api/heartbeat| E
-        I[💻 PC-N Agent] -->|POST /api/heartbeat| E
+        F[PC-1 Agent] -->|POST /api/heartbeat| E
+        G[PC-2 Agent] -->|POST /api/heartbeat| E
+        H[PC-3 Agent] -->|POST /api/heartbeat| E
+        I[PC-N Agent] -->|POST /api/heartbeat| E
     end
 
     subgraph DEPLOY
-        J[🔍 Scanner] -->|SMB ping| F
+        J[Scanner] -->|SMB ping| F
         J -->|SMB ping| G
         J -->|SMB ping| H
-        K[📦 Deployer] -->|SMB copy + WMI| F
-        K -->|SMB copy + WMI| G
-        K -->|SMB copy + WMI| H
+        K[Deployer] -->|SMB + WMI| F
+        K -->|SMB + WMI| G
+        K -->|SMB + WMI| H
     end
 
     C -.-> J
@@ -52,23 +52,23 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant U as 👤 Siz (Telegram)
-    participant B as 🤖 Bot
-    participant S as 🖥️ Server
-    participant C as 💻 Client Agent
+    participant U as User
+    participant B as Telegram Bot
+    participant S as Server
+    participant C as Client Agent
 
     U->>B: /scan
     B->>S: Tarmoqni skanerlash
     S-->>B: Windows PC lar topildi
-    B-->>U: 📋 Ro'yxat + Deploy tugmalari
+    B-->>U: Ro'yxat + Deploy tugmalari
 
     U->>B: /deploy 192.168.1.50 admin pass
     B->>S: Deploy buyrug'i
     S->>C: SMB orqali agent nusxalash
     S->>C: WMI orqali ishga tushirish
-    C-->>S: ✅ Agent ishga tushdi
+    C-->>S: Agent ishga tushdi
     S-->>B: Deploy muvaffaqiyatli
-    B-->>U: ✅ Agent o'rnatildi!
+    B-->>U: Agent o'rnatildi!
 
     loop Har 25 soniyada
         C->>S: POST /api/heartbeat (JSON)
@@ -77,14 +77,14 @@ sequenceDiagram
     end
 
     U->>B: /devices
-    B-->>U: 🟢 PC-1 | 🔴 PC-2 | 🟢 PC-3
+    B-->>U: Online/Offline holatlar
 
     U->>B: /cmd PC-1 ipconfig /all
     B->>S: Buyruq navbatga qo'yildi
     S->>C: Keyingi heartbeat da buyruq
     C->>S: Natija qaytarildi
     S->>B: Natija Telegram ga
-    B-->>U: 📋 ipconfig natijasi
+    B-->>U: ipconfig natijasi
 ```
 
 ---
@@ -117,7 +117,31 @@ device-monitor/
 
 ## 🚀 Tezkor Boshlash
 
-### 1-Qadam: Serverni Ishga Tushirish
+### ⚡ VARIANT 1: Bitta Buyruq — Hammasi Avtomatik!
+
+**Linux/VPS da:**
+```bash
+bash setup.sh
+```
+
+**Windows da:**
+```cmd
+setup.bat
+```
+
+Bu skript avtomatik:
+1. ✅ Python kutubxonalarini o'rnatadi
+2. ✅ Client agent yasaydi (DeviceAgent.exe)
+3. ✅ Server IP ni aniqlaydi
+4. ✅ Client SERVER_URL ni yangilaydi
+5. ✅ Serverni ishga tushiradi
+6. ✅ Agar AUTO_DEPLOY yoqilgan bo'lsa — tarmoqni skanerlab, barcha PC larga agent o'rnatadi
+
+---
+
+### 📋 VARIANT 2: Qo'lda o'rnatish
+
+#### 1-Qadam: Serverni Ishga Tushirish
 
 ```bash
 cd server/
@@ -165,12 +189,12 @@ Client heartbeat URL: http://<SERVER_IP>:5000/api/heartbeat
 
 ```mermaid
 graph LR
-    A[DeviceAgent.exe] -->|Usul A| B[📋 Qo'lda]
-    A -->|Usul B| C[🌐 Tarmoq orqali]
+    A[DeviceAgent.exe] -->|Usul A| B[Qolda]
+    A -->|Usul B| C[Tarmoq orqali]
 
     B --> D[USB/Nusxa]
     D --> E[install_client.bat]
-    E --> F[✅ O'rnatildi]
+    E --> F[Ornatildi]
 
     C --> G[/scan Telegram da]
     G --> H[/deploy ip user pass]
@@ -301,14 +325,14 @@ graph LR
 
 ```mermaid
 flowchart TD
-    A[🔍 /scan buyrug'i] --> B[1️⃣ Ping Sweep]
+    A[/scan buyrugi] --> B[Ping Sweep]
     B -->|254 IP tekshiriladi| C{Qaysilar tirik?}
-    C -->|Javob bergan| D[2️⃣ SMB Port 445]
-    D -->|Port ochiq| E[Windows ✅]
-    D -->|Port yopiq| F[Boshqa OS ❌]
-    E --> G[3️⃣ Hostname + MAC]
-    G --> H[📋 Natija ro'yxati]
-    H --> I[Deploy tugmalari bilan yuborish]
+    C -->|Javob bergan| D[SMB Port 445]
+    D -->|Port ochiq| E[Windows]
+    D -->|Port yopiq| F[Boshqa OS]
+    E --> G[Hostname + MAC]
+    G --> H[Natija royxati]
+    H --> I[Deploy tugmalari]
 
     style A fill:#e94560,color:#fff
     style B fill:#0f3460,color:#fff
@@ -330,24 +354,30 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[📦 Deploy buyrug'i] --> B[SMB ulanish]
-    B -->|net use| C[C$ share ochish]
-    C --> D[DeviceAgent.exe nusxalash]
-    D -->|C:\ProgramData\DeviceMonitor\| E[WMI orqali ishga tushirish]
-    E -->|wmic process call create| F[Agent ishga tushdi ✅]
-    F --> G[Task Scheduler yaratish]
-    G -->|schtasks /Create| H[Reboot dan keyin avtomatik ✅]
+    A[Deploy buyrugi] --> B[Administrator holatini tekshirish]
+    B -->|Disabled| C[Administrator yoqish + parol]
+    B -->|Active| D[SMB ulanish]
+    C --> D
+    D -->|net use| E[C$ share ochish]
+    E --> F[DeviceAgent.exe nusxalash]
+    F -->|C:\ProgramData\DeviceMonitor\| G[WMI orqali ishga tushirish]
+    G -->|wmic process call create| H[Agent ishga tushdi]
+    H --> I[Task Scheduler yaratish]
+    I -->|schtasks /Create| J[Reboot dan keyin avtomatik]
 
     style A fill:#e94560,color:#fff
-    style D fill:#0f3460,color:#fff
-    style F fill:#2ea043,color:#fff
+    style C fill:#f0ad4e,color:#fff
+    style F fill:#0f3460,color:#fff
     style H fill:#2ea043,color:#fff
+    style J fill:#2ea043,color:#fff
 ```
 
 ### Deploy bosqichlari:
 
 ```
 ┌────────────────────────────────────────────────────────────┐
+│  0️⃣  Administrator tekshirish: wmic Administrator Disabled │
+│      Agar disabled bo'lsa → yoqiladi + yangi parol qo'yiladi│
 │  1️⃣  SMB ulanish: net use \\192.168.1.50\C$ /user:admin   │
 │  2️⃣  Nusxalash:   copy DeviceAgent.exe \\192.168.1.50\C$\ │
 │                     ProgramData\DeviceMonitor\              │

