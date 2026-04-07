@@ -62,8 +62,26 @@ if [ -f "client/client.py" ]; then
     echo -e "${GREEN}[4/5] Client SERVER_URL yangilandi → http://${SERVER_IP}:5000${NC}"
 fi
 
-# ---- Step 5: Start server ----
-echo -e "${GREEN}[5/5] Server ishga tushmoqda...${NC}"
+# ---- Step 5: Setup auto-restart (systemd) ----
+echo -e "${GREEN}[5/6] Svet o'chib yonganda avtomatik boshlash...${NC}"
+
+SERVICE_FILE="device-monitor.service"
+SYSTEMD_FILE="/etc/systemd/system/device-monitor.service"
+
+# Fix paths in service file
+sed "s|/opt/device-monitor|${SCRIPT_DIR}|g" server/${SERVICE_FILE} > /tmp/device-monitor.service
+
+if command -v systemctl &> /dev/null && [ -w "/etc/systemd/system" ]; then
+    cp /tmp/device-monitor.service ${SYSTEMD_FILE}
+    systemctl daemon-reload
+    systemctl enable device-monitor 2>/dev/null
+    echo -e "${GREEN}   ✅ systemd service o'rnatildi — svet yonganda avto boshlanadi${NC}"
+else
+    echo -e "${YELLOW}   ⚠️  systemd topilmadi. run_server.sh ishlatiladi.${NC}"
+fi
+
+# ---- Step 6: Start server ----
+echo -e "${GREEN}[6/6] Server ishga tushmoqda...${NC}"
 echo ""
 echo -e "${CYAN}============================================${NC}"
 echo -e "${CYAN}  ✅ HAMMASI TAYYOR!${NC}"
@@ -72,9 +90,10 @@ echo ""
 echo -e "  🌐 Server:  http://${SERVER_IP}:5000"
 echo -e "  🤖 Telegram: Bot orqali boshqaring"
 echo -e "  📡 Clients:  http://${SERVER_IP}:5000/api/heartbeat"
+echo -e "  🔄 Auto-restart: ✅ Svet yonganda avto boshlanadi"
 echo ""
 echo -e "${CYAN}============================================${NC}"
 echo ""
 
 cd server/
-python app.py
+bash run_server.sh

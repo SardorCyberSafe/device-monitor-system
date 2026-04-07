@@ -77,6 +77,19 @@ powershell -Command "(Get-Content client\client.py) -replace 'SERVER_URL = \".*\
 powershell -Command "(Get-Content client\client.py) -replace 'COMMAND_RESULT_URL = \".*\"', 'COMMAND_RESULT_URL = \"http://%SERVER_IP%:5000/api/command_result\"' | Set-Content client\client.py"
 echo [+] Yangilandi: http://%SERVER_IP%:5000
 
+:: ---- Step 7: Auto-restart on boot (Task Scheduler) ----
+echo.
+echo [7/7] Svet o'chib yonganda avtomatik boshlash...
+
+set SERVER_DIR=%~dp0server
+
+schtasks /Create /TN "DeviceMonitorServer" /TR "python \"%SERVER_DIR%\app.py\"" /SC ONSTART /RL HIGHEST /F >nul 2>&1
+if %errorlevel% equ 0 (
+    echo [+] Task Scheduler o'rnatildi — svet yonganda avto boshlanadi
+) else (
+    echo [!] Task Scheduler xato berdi. Administrator sifatida ishga tushiring.
+)
+
 echo.
 echo ============================================
 echo   HAMMASI TAYYOR!
@@ -85,6 +98,7 @@ echo.
 echo   Server:  http://%SERVER_IP%:5000
 echo   Clients: http://%SERVER_IP%:5000/api/heartbeat
 echo   Telegram: Bot orqali boshqaring
+echo   🔄 Auto-restart: ✅ Svet yonganda avto boshlanadi
 echo.
 echo   Avtomatik o'rnatish yoqish uchun:
 echo   server\config.py da:
