@@ -1,0 +1,13 @@
+"""
+Server configuration.
+"""
+
+BOT_TOKEN = "7627550368:AAFX_94RN8uKK_ux2h3FBYvG6LEyo_ruTdM"
+ADMIN_ID = 5018939044
+
+HTTP_HOST = "0.0.0.0"
+HTTP_PORT = 5000
+
+HEARTBEAT_TIMEOUT = 90
+
+DB_PATH = "devices.db"
