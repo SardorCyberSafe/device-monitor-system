@@ -354,22 +354,20 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    A[Deploy buyrugi] --> B[Administrator holatini tekshirish]
-    B -->|Disabled| C[Administrator yoqish + parol]
+    A[Deploy buyrugi] --> B[Admin holati tekshiriladi]
+    B -->|Disabled| C[Admin yoqiladi]
     B -->|Active| D[SMB ulanish]
     C --> D
-    D -->|net use| E[C$ share ochish]
-    E --> F[DeviceAgent.exe nusxalash]
-    F -->|C:\ProgramData\DeviceMonitor\| G[WMI orqali ishga tushirish]
-    G -->|wmic process call create| H[Agent ishga tushdi]
-    H --> I[Task Scheduler yaratish]
-    I -->|schtasks /Create| J[Reboot dan keyin avtomatik]
+    D --> E[DeviceAgent nusxalanadi]
+    E --> F[WMI orqali ishga tushadi]
+    F --> G[Task Scheduler yaratiladi]
+    G --> H[Reboot dan keyin avtomatik]
 
     style A fill:#e94560,color:#fff
     style C fill:#f0ad4e,color:#fff
-    style F fill:#0f3460,color:#fff
+    style E fill:#0f3460,color:#fff
+    style F fill:#2ea043,color:#fff
     style H fill:#2ea043,color:#fff
-    style J fill:#2ea043,color:#fff
 ```
 
 ### Deploy bosqichlari:
